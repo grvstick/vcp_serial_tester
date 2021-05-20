@@ -10,6 +10,14 @@ from serial.tools.list_ports import comports
 from serial.serialutil import SerialException
 from serial.threaded import ReaderThread, LineReader
 from serial import Serial
+<<<<<<< HEAD
+=======
+
+
+
+
+rx_queue, tx_queue = Queue(), Queue()
+>>>>>>> vcp_serial/master
 
 rx_queue, tx_queue = Queue(), Queue()
 
@@ -40,6 +48,7 @@ class SerialCommTester(ttk.Frame):
                                                    column=0,
                                                    sticky=(E, W))
 
+<<<<<<< HEAD
         cbox_port = ttk.Combobox(cf, width=25, state='readonly')
         cbox_port.configure(postcommand=lambda: cbox_port.configure(values=comports()))
         cbox_port.grid(row=0, column=1, columnspan=2, sticky=(E, W))
@@ -59,27 +68,67 @@ class SerialCommTester(ttk.Frame):
 
         cbox_size = ttk.Combobox(cf, state='readonly', values=['5 bits', '6 bits', '7 bits', '8 bits'])
         cbox_size.grid(row=1, column=2, sticky=(E, W))
+=======
+        cbox_port = ttk.Combobox(cf, width=30, state='readonly')
+        cbox_port.configure(postcommand=lambda: cbox_port.configure(values=comports()))
+        cbox_port.grid(row=0, column=1, sticky=(E, W))
+        cbox_port.bind("<<ComboboxSelected>>", 
+                      lambda event: self.cbox_selected(event=event,
+                                                      name="port",
+                                                      cbox=cbox_port))
+
+        ttk.Label(cf, width=15, text='Baud Rate:').grid(row=1, column=0, sticky=(E, W))
+        cbox_baud = ttk.Combobox(cf, width=30, state='readonly',
+                                values=[1200, 2400, 4800, 9600, 19_200, 38_400, 57_600, 115_200, 230_400, 460_800, 921_600])
+        cbox_baud.grid(row=1, column=1, sticky=(E, W))
+        cbox_baud.current(4)
+        cbox_baud.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                              name="baud",
+                                                                              cbox=cbox_baud))
+
+        ttk.Label(cf, width=15, text='Bytesize:').grid(row=2,
+                                                       column=0,
+                                                       sticky=(E, W))
+        
+        cbox_size = ttk.Combobox(cf, width=30, state='readonly', values=['5 bits', '6 bits', '7 bits', '8 bits'])
+        cbox_size.grid(row=2, column=1, sticky=(E, W))
+>>>>>>> vcp_serial/master
         cbox_size.current(3)
         cbox_size.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
                                                                                 name="size",
                                                                                 cbox=cbox_size))
 
+<<<<<<< HEAD
         ttk.Label(cf, text='Parity/Stop bit').grid(row=2, column=0, sticky=(E, W))
 
         cbox_parity = ttk.Combobox(cf, state='readonly', values=['None', 'Even', 'Odd', 'Mark', 'Space'])
         cbox_parity.grid(row=2, column=1, sticky=(E, W))
+=======
+        ttk.Label(cf, width=15, text='Parity:').grid(row=3,
+                                                     column=0,
+                                                     sticky=(E, W))
+        cbox_parity = ttk.Combobox(cf, width=30, state='readonly', values=['None', 'Even', 'Odd', 'Mark', 'Space'])
+        cbox_parity.grid(row=3, column=1, sticky=(E, W))
+>>>>>>> vcp_serial/master
         cbox_parity.current(0)
         cbox_parity.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
                                                                                   name="parity",
                                                                                   cbox=cbox_parity))
 
+<<<<<<< HEAD
         cbox_stop = ttk.Combobox(cf, state='readonly', values=[1, 1.5, 2])
         cbox_stop.grid(row=2, column=2, sticky=(E, W))
+=======
+        ttk.Label(cf, width=15, text='Stopbit:').grid(row=4, column=0, sticky=(E, W))
+        cbox_stop = ttk.Combobox(cf, width=30, state='readonly', values=[1, 1.5, 2])
+        cbox_stop.grid(row=4, column=1, sticky=(E, W))
+>>>>>>> vcp_serial/master
         cbox_stop.current(0)
         cbox_stop.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
                                                                                 name="stop",
                                                                                 cbox=cbox_stop))
 
+<<<<<<< HEAD
         ttk.Button(cf, text='Connect Port', command=self.connect_serial).grid(row=5,
                                                                               column=0,
                                                                               columnspan=3,
@@ -87,6 +136,24 @@ class SerialCommTester(ttk.Frame):
 
         # transmit frame
         tf = ttk.LabelFrame(self, text="Enter Tx Message")
+=======
+        ttk.Label(cf, width=15, text='Delimiter').grid(row=5, column=0, sticky=(E, W))
+        cbox_delim = ttk.Combobox(cf, width=30, state='readonly', values=["CR", "LF", "CRLF", "NULL"])
+        cbox_delim.grid(row=5, column=1, sticky=(E, W))
+        cbox_delim.current(0)
+        cbox_delim.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                                 name="delim",
+                                                                                 cbox=cbox_delim))
+
+        ttk.Button(cf, text='Connect Port',command=self.connect_serial).grid(row=6,
+                                                                             column=0,
+                                                                             columnspan=2,
+                                                                             sticky=(E, W))
+
+
+        # transceiver frame
+        tf = ttk.Frame(self.root)
+>>>>>>> vcp_serial/master
         tf.grid(row=0, column=1, sticky=(N, E, W, S))
         tf['borderwidth'] = 2
         self.columnconfigure(0, weight=1)
@@ -122,6 +189,27 @@ class SerialCommTester(ttk.Frame):
         elif cbox.get() == "NULL":
             self.comm_settings[name] = b'\0'
         
+<<<<<<< HEAD
+=======
+        for child in tf.winfo_children():
+            child.grid_configure(padx=5, pady=5)
+
+        for child in self.root.winfo_children():
+            child.grid_configure(padx=2, pady=2)
+
+    def cbox_selected(self, event, name:str, cbox: ttk.Combobox):
+        if name != 'delim':
+            self.comm_settings[name] = cbox.get()
+        elif cbox.get() == "CR":
+            self.comm_settings[name] = b'\r'
+        elif cbox.get() == "LF":
+            self.comm_settings[name] = b'\n'
+        elif cbox.get() == "CRLF":
+            self.comm_settings[name] = b'\r\n'
+        elif cbox.get() == "NULL":
+            self.comm_settings[name] = b'\0'
+        
+>>>>>>> vcp_serial/master
 
     def connect_serial(self):
         if self.comm_settings['port'] is None:
@@ -134,6 +222,7 @@ class SerialCommTester(ttk.Frame):
                                  parity=self.comm_settings['parity'][0],
                                  stopbits=float(self.comm_settings['stop']))
             messagebox.showinfo("Info", "Serial Connection Successful")
+<<<<<<< HEAD
             print(self.serial_handler)
             self.root.after(100, self.receive)
             return
@@ -146,6 +235,20 @@ class SerialCommTester(ttk.Frame):
         tx_data = (self.str_tx.get() + "\r").encode()
         print(tx_data)
         self.serial_handler.write(tx_data)
+=======
+            print(self.serial)
+            self.root.after(1000, self.receive)
+            self.handler = StoreLines()
+            
+            
+            
+        except SerialException as SE:
+            messagebox.showerror("Error", str(SE))
+            return
+    
+    def transmit(self):
+        tx_queue.put(self.str_tx.get())
+>>>>>>> vcp_serial/master
 
     def receive(self):
         if rx_queue.empty() is not True:
@@ -153,6 +256,11 @@ class SerialCommTester(ttk.Frame):
         
         self.root.after(200, self.receive)
     
+<<<<<<< HEAD
+=======
+    def 
+    
+>>>>>>> vcp_serial/master
     # def transmit(self):
     #     tx_data = self.str_tx.get().encode() + self.comm_settings['delim']
     #     print(tx_data)
@@ -185,7 +293,19 @@ class StoreLines(LineReader):
     def connection_made(self, transport):
         super().connection_made(transport)
         print('port opened')
+<<<<<<< HEAD
+=======
 
+>>>>>>> vcp_serial/master
+
+    def handle_line(self, data):
+        rx_queue.put(data)
+    
+    def connection_lost(self, exc):
+        if exc:
+            traceback.print_exc(exc)
+        print('port closed')
+    
 
     def handle_line(self, data):
         rx_queue.put(data)
