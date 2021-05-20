@@ -1,10 +1,20 @@
+import re
 import tkinter as tk
 from tkinter import ttk, N, W, E, S, messagebox
+from queue import Queue
+import sys, traceback
+from collections import deque
+
+
 from serial.tools.list_ports import comports
 from serial.serialutil import SerialException
+from serial.threaded import ReaderThread, LineReader
 from serial import Serial
-from threading import Thread
-from queue import Queue
+
+
+
+
+rx_queue, tx_queue = Queue(), Queue()
 
 class SerialCommTester:
     def __init__(self, root):
@@ -24,59 +34,68 @@ class SerialCommTester:
                                   baud='19200',
                                   size='8 bits',
                                   parity='N',
-                                  stop='1')
+                                  stop='1',
+                                  delim=b'\r')
 
         ttk.Label(cf, width=15, text='Port:').grid(row=0,
                                                    column=0,
                                                    sticky=(E, W))
 
-        cbb_port = ttk.Combobox(cf, width=30, state='readonly')
-        cbb_port.configure(postcommand=lambda: cbb_port.configure(values=comports()))
-        cbb_port.grid(row=0, column=1, sticky=(E, W))
-        cbb_port.bind("<<ComboboxSelected>>", 
-                      lambda event: self.cbb_selected(event=event,
+        cbox_port = ttk.Combobox(cf, width=30, state='readonly')
+        cbox_port.configure(postcommand=lambda: cbox_port.configure(values=comports()))
+        cbox_port.grid(row=0, column=1, sticky=(E, W))
+        cbox_port.bind("<<ComboboxSelected>>", 
+                      lambda event: self.cbox_selected(event=event,
                                                       name="port",
-                                                      cbox=cbb_port))
+                                                      cbox=cbox_port))
 
         ttk.Label(cf, width=15, text='Baud Rate:').grid(row=1, column=0, sticky=(E, W))
-        cbb_baud = ttk.Combobox(cf, width=30, state='readonly',
+        cbox_baud = ttk.Combobox(cf, width=30, state='readonly',
                                 values=[1200, 2400, 4800, 9600, 19_200, 38_400, 57_600, 115_200, 230_400, 460_800, 921_600])
-        cbb_baud.grid(row=1, column=1, sticky=(E, W))
-        cbb_baud.current(4)
-        cbb_baud.bind("<<ComboboxSelected>>", lambda event: self.cbb_selected(event=event,
+        cbox_baud.grid(row=1, column=1, sticky=(E, W))
+        cbox_baud.current(4)
+        cbox_baud.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
                                                                               name="baud",
-                                                                              cbox=cbb_baud))
+                                                                              cbox=cbox_baud))
 
         ttk.Label(cf, width=15, text='Bytesize:').grid(row=2,
                                                        column=0,
                                                        sticky=(E, W))
         
-        cbb_size = ttk.Combobox(cf, width=30, state='readonly', values=['5 bits', '6 bits', '7 bits', '8 bits'])
-        cbb_size.grid(row=2, column=1, sticky=(E, W))
-        cbb_size.current(3)
-        cbb_size.bind("<<ComboboxSelected>>", lambda event: self.cbb_selected(event=event,
-                                                                              name="size",
-                                                                              cbox=cbb_size))
+        cbox_size = ttk.Combobox(cf, width=30, state='readonly', values=['5 bits', '6 bits', '7 bits', '8 bits'])
+        cbox_size.grid(row=2, column=1, sticky=(E, W))
+        cbox_size.current(3)
+        cbox_size.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                                name="size",
+                                                                                cbox=cbox_size))
 
         ttk.Label(cf, width=15, text='Parity:').grid(row=3,
                                                      column=0,
                                                      sticky=(E, W))
-        cbb_parity = ttk.Combobox(cf, width=30, state='readonly', values=['None', 'Even', 'Odd', 'Mark', 'Space'])
-        cbb_parity.grid(row=3, column=1, sticky=(E, W))
-        cbb_parity.current(0)
-        cbb_parity.bind("<<ComboboxSelected>>", lambda event: self.cbb_selected(event=event,
-                                                                                name="parity",
-                                                                                cbox=cbb_parity))
+        cbox_parity = ttk.Combobox(cf, width=30, state='readonly', values=['None', 'Even', 'Odd', 'Mark', 'Space'])
+        cbox_parity.grid(row=3, column=1, sticky=(E, W))
+        cbox_parity.current(0)
+        cbox_parity.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                                  name="parity",
+                                                                                  cbox=cbox_parity))
 
         ttk.Label(cf, width=15, text='Stopbit:').grid(row=4, column=0, sticky=(E, W))
-        cbb_stop = ttk.Combobox(cf, width=30, state='readonly', values=[1, 1.5, 2])
-        cbb_stop.grid(row=4, column=1, sticky=(E, W))
-        cbb_stop.current(0)
-        cbb_stop.bind("<<ComboboxSelected>>", lambda event: self.cbb_selected(event=event,
-                                                                              name="stop",
-                                                                              cbox=cbb_stop))
+        cbox_stop = ttk.Combobox(cf, width=30, state='readonly', values=[1, 1.5, 2])
+        cbox_stop.grid(row=4, column=1, sticky=(E, W))
+        cbox_stop.current(0)
+        cbox_stop.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                                name="stop",
+                                                                                cbox=cbox_stop))
 
-        ttk.Button(cf, text='Connect Port',command=self.connect_serial).grid(row=5,
+        ttk.Label(cf, width=15, text='Delimiter').grid(row=5, column=0, sticky=(E, W))
+        cbox_delim = ttk.Combobox(cf, width=30, state='readonly', values=["CR", "LF", "CRLF", "NULL"])
+        cbox_delim.grid(row=5, column=1, sticky=(E, W))
+        cbox_delim.current(0)
+        cbox_delim.bind("<<ComboboxSelected>>", lambda event: self.cbox_selected(event=event,
+                                                                                 name="delim",
+                                                                                 cbox=cbox_delim))
+
+        ttk.Button(cf, text='Connect Port',command=self.connect_serial).grid(row=6,
                                                                              column=0,
                                                                              columnspan=2,
                                                                              sticky=(E, W))
@@ -109,52 +128,93 @@ class SerialCommTester:
         for child in self.root.winfo_children():
             child.grid_configure(padx=2, pady=2)
 
-    def cbb_selected(self, event, name:str, cbox: ttk.Combobox):
-        self.comm_settings[name] = cbox.get()
+    def cbox_selected(self, event, name:str, cbox: ttk.Combobox):
+        if name != 'delim':
+            self.comm_settings[name] = cbox.get()
+        elif cbox.get() == "CR":
+            self.comm_settings[name] = b'\r'
+        elif cbox.get() == "LF":
+            self.comm_settings[name] = b'\n'
+        elif cbox.get() == "CRLF":
+            self.comm_settings[name] = b'\r\n'
+        elif cbox.get() == "NULL":
+            self.comm_settings[name] = b'\0'
+        
 
     def connect_serial(self):
         if self.comm_settings['port'] is None:
             self.str_comms.set("Error: No port specified")
             return
         try:
-            self.serial_handler = Serial(port=self.comm_settings['port'].split()[0],
-                                         baudrate=int(self.comm_settings['baud']),
-                                         bytesize=int(self.comm_settings['size'][0]),
-                                         parity=self.comm_settings['parity'][0],
-                                         stopbits=float(self.comm_settings['stop']))
+            self.serial = Serial(port=self.comm_settings['port'].split()[0],
+                                 baudrate=int(self.comm_settings['baud']),
+                                 bytesize=int(self.comm_settings['size'][0]),
+                                 parity=self.comm_settings['parity'][0],
+                                 stopbits=float(self.comm_settings['stop']))
             messagebox.showinfo("Info", "Serial Connection Successful")
-            print(self.serial_handler)
-            self.root.after(100, self.receive)
-            return
+            print(self.serial)
+            self.root.after(1000, self.receive)
+            self.handler = StoreLines()
+            
+            
             
         except SerialException as SE:
             messagebox.showerror("Error", str(SE))
             return
     
     def transmit(self):
-        tx_data = (self.str_tx.get() + "\r").encode()
-        print(tx_data)
-        self.serial_handler.write(tx_data)
+        tx_queue.put(self.str_tx.get())
 
     def receive(self):
-        rx_data = self.serial_handler.read_all()
-        print("read: ", rx_data)
-        try:
-            self.str_rx.set(rx_data.decode("utf-8"))
-        except UnicodeDecodeError:
-            print("decode error")
-        self.root.after(200, self.receive)
-
-
-class ThreadedRx(Thread):
-    def __init__(self, queue, serial_handler):
-        super().init(self)
-        self.queue = queue
-        self.serial_handler = serial_handler
+        if rx_queue.empty() is not True:
+            self.str_rx.set(rx_queue.get())
         
-    def run(self):
-        pass
+        self.root.after(200, self.receive)
+    
+    def 
+    
+    # def transmit(self):
+    #     tx_data = self.str_tx.get().encode() + self.comm_settings['delim']
+    #     print(tx_data)
+    #     self.serial_handler.write(tx_data)
 
+    # def receive(self):
+    #     rx_data = self.serial_handler.read_all()
+    #     print("read: ", rx_data)
+    #     try:
+    #         self.str_rx.set(rx_data.decode("utf-8"))
+    #     except UnicodeDecodeError:
+    #         print("decode error")
+    #     self.root.after(200, self.receive)
+
+
+# class ThreadedRx(Thread):
+#     def __init__(self, queue, serial_handler):
+#         super().init(self)
+#         self.queue = queue
+#         self.serial_handler = serial_handler
+        
+#     def run(self):
+#         pass
+
+
+class StoreLines(LineReader):
+    def __init__(self, terminator):
+        self.TERMINATOR = terminator
+        
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        print('port opened')
+
+
+    def handle_line(self, data):
+        rx_queue.put(data)
+    
+    def connection_lost(self, exc):
+        if exc:
+            traceback.print_exc(exc)
+        print('port closed')
+    
 
 if __name__ == '__main__':
     root_frame = tk.Tk()
