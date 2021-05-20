@@ -1,8 +1,17 @@
+import re
 import tkinter as tk
 from tkinter import ttk, N, W, E, S, messagebox
+from queue import Queue
+import sys, traceback
+from collections import deque
+
+
 from serial.tools.list_ports import comports
 from serial.serialutil import SerialException
+from serial.threaded import ReaderThread, LineReader
 from serial import Serial
+
+rx_queue, tx_queue = Queue(), Queue()
 
 
 class SerialCommTester(ttk.Frame):
@@ -24,7 +33,8 @@ class SerialCommTester(ttk.Frame):
                                   baud='19200',
                                   size='8 bits',
                                   parity='N',
-                                  stop='1')
+                                  stop='1',
+                                  delim=b'\r')
 
         ttk.Label(cf, width=20, text='Port:').grid(row=0,
                                                    column=0,
@@ -100,19 +110,29 @@ class SerialCommTester(ttk.Frame):
             for grandchild in child.winfo_children():
                 grandchild.grid_configure(padx=5, pady=5)
 
-    def cbox_selected(self, event, name: str, cbox: ttk.Combobox):
-        self.comm_settings[name] = cbox.get()
+    def cbox_selected(self, event, name:str, cbox: ttk.Combobox):
+        if name != 'delim':
+            self.comm_settings[name] = cbox.get()
+        elif cbox.get() == "CR":
+            self.comm_settings[name] = b'\r'
+        elif cbox.get() == "LF":
+            self.comm_settings[name] = b'\n'
+        elif cbox.get() == "CRLF":
+            self.comm_settings[name] = b'\r\n'
+        elif cbox.get() == "NULL":
+            self.comm_settings[name] = b'\0'
+        
 
     def connect_serial(self):
         if self.comm_settings['port'] is None:
             messagebox.showinfo("Error", "No port specified")
             return
         try:
-            self.serial_handler = Serial(port=self.comm_settings['port'].split()[0],
-                                         baudrate=int(self.comm_settings['baud']),
-                                         bytesize=int(self.comm_settings['size'][0]),
-                                         parity=self.comm_settings['parity'][0],
-                                         stopbits=float(self.comm_settings['stop']))
+            self.serial = Serial(port=self.comm_settings['port'].split()[0],
+                                 baudrate=int(self.comm_settings['baud']),
+                                 bytesize=int(self.comm_settings['size'][0]),
+                                 parity=self.comm_settings['parity'][0],
+                                 stopbits=float(self.comm_settings['stop']))
             messagebox.showinfo("Info", "Serial Connection Successful")
             print(self.serial_handler)
             self.root.after(100, self.receive)
@@ -128,14 +148,53 @@ class SerialCommTester(ttk.Frame):
         self.serial_handler.write(tx_data)
 
     def receive(self):
-        rx_data = self.serial_handler.read_all()
-        print("read: ", rx_data)
-        try:
-            self.str_rx.set(rx_data.decode("utf-8"))
-        except UnicodeDecodeError:
-            print("decode error")
+        if rx_queue.empty() is not True:
+            self.str_rx.set(rx_queue.get())
+        
         self.root.after(200, self.receive)
+    
+    # def transmit(self):
+    #     tx_data = self.str_tx.get().encode() + self.comm_settings['delim']
+    #     print(tx_data)
+    #     self.serial_handler.write(tx_data)
 
+    # def receive(self):
+    #     rx_data = self.serial_handler.read_all()
+    #     print("read: ", rx_data)
+    #     try:
+    #         self.str_rx.set(rx_data.decode("utf-8"))
+    #     except UnicodeDecodeError:
+    #         print("decode error")
+    #     self.root.after(200, self.receive)
+
+
+# class ThreadedRx(Thread):
+#     def __init__(self, queue, serial_handler):
+#         super().init(self)
+#         self.queue = queue
+#         self.serial_handler = serial_handler
+        
+#     def run(self):
+#         pass
+
+
+class StoreLines(LineReader):
+    def __init__(self, terminator):
+        self.TERMINATOR = terminator
+        
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        print('port opened')
+
+
+    def handle_line(self, data):
+        rx_queue.put(data)
+    
+    def connection_lost(self, exc):
+        if exc:
+            traceback.print_exc(exc)
+        print('port closed')
+    
 
 if __name__ == '__main__':
     root = tk.Tk()
